@@ -1,19 +1,15 @@
-'''
-Gets downloads a list of URLs for the names stored in "animals",
-then calls a bash script to do the actual downloading
-'''
 import re, sys, os, subprocess
 import urllib.request
 
-class_names = sys.argv[1:]
-print(class_names)
+class_names = ["Basenji","Basset","Beagle","BedlingtonTerrier","BerneseMountainDog"]
+wnids = ['n02110806', 'n02088238', 'n02088364', 'n02093647', 'n02107683']
+
 
 def new_dir(p):
-    #try:
     if not os.path.exists(p):
         os.makedirs(p)
-    #except FileExistsError:
-    #    pass
+
+
 
 for folder in ["data","features/teacher","features/student"]:
     for case in ["train","test"]:
@@ -21,20 +17,9 @@ for folder in ["data","features/teacher","features/student"]:
             path = "{}/{}/{}".format(folder,case,name)
             new_dir(path)
 
-nbr_train = 200
-nbr_test = 100
+#nbr_train = 200
+#nbr_test = 100
 
-def get_wnid(name):
-    wnid_data = open("index.noun","r").read()
-    str1 = r'^q .*$'
-    str2 = re.sub('q',name,str1)
-    hits = re.findall(str2,wnid_data,re.MULTILINE)
-    print(hits)
-    assert len(hits)==1
-    ids = re.findall(r'[\d]{8,8}',hits[0])
-    wnid = 'n'+ids[0]
-    print(wnid)
-    return wnid
 
 def get_urls(wnid,name):
     save_path = "URL_lists/{}_URLs".format(name)
@@ -47,15 +32,17 @@ def get_urls(wnid,name):
     urls = [re.sub("\n","",u) for u in urls]
     return urls
 
-for name in class_names:
-    wnid = get_wnid(name)
+for name,wnid in zip(class_names,wnids):
     urls = get_urls(wnid,name)
     url_gen = (url for url in urls)
     for case in ["train","test"]:
         print("Case {}, nbr_train {}, nbr_test {}".format(case,nbr_train,nbr_test))
         max_images = {"train":nbr_train,"test":nbr_test}[case]
         print("Downloading at most {} {} images".format(max_images,name))
-        for i in range(max_images):
-            url = next(url_gen)
-            save_path="data/{}/{}/{}{:05d}.jpg".format(case,name,name,i)
-            subprocess.call(["./Downloader.sh",url,save_path])
+        for i in range(10000):
+            try:
+                url = next(url_gen)
+                save_path="data/{}/{}/{}{:05d}.jpg".format(case,name,name,i)
+                subprocess.call(["./Downloader.sh",url,save_path])
+            except StopIteration:
+                break
