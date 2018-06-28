@@ -9,20 +9,17 @@ class_names = sys.argv[1:]
 print(class_names)
 
 def new_dir(p):
-    #try:
     if not os.path.exists(p):
         os.makedirs(p)
-    #except FileExistsError:
-    #    pass
 
 for folder in ["data","features/teacher","features/student"]:
     for case in ["train","test"]:
         for name in class_names:
             path = "{}/{}/{}".format(folder,case,name)
             new_dir(path)
+new_dir("models")
 
-nbr_train = 200
-nbr_test = 100
+max_images = {"train":500,"test":250}
 
 def get_wnid(name):
     wnid_data = open("index.noun","r").read()
@@ -52,10 +49,8 @@ for name in class_names:
     urls = get_urls(wnid,name)
     url_gen = (url for url in urls)
     for case in ["train","test"]:
-        print("Case {}, nbr_train {}, nbr_test {}".format(case,nbr_train,nbr_test))
-        max_images = {"train":nbr_train,"test":nbr_test}[case]
-        print("Downloading at most {} {} images".format(max_images,name))
-        for i in range(max_images):
+        print("Downloading {} {} images".format(name,case))
+        for i in range(max_images[case]):
             url = next(url_gen)
             save_path="data/{}/{}/{}{:05d}.jpg".format(case,name,name,i)
             subprocess.call(["./Downloader.sh",url,save_path])

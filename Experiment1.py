@@ -1,14 +1,14 @@
 import Teacher
 import Student
-from Teacher import build_database
+from Utils import build_database
 
-repeats = 5
+repeats = 1
 
-build_database()
-T = Teacher.Teacher()
-T.calculate_features()
-hist1 = T.train_teacher()
-teacher_acc = hist1.history["val_acc"][-1]
+#build_database()
+T = Teacher.Teacher("densenet")
+#T.calculate_features()
+#hist1 = T.train()
+#teacher_acc = hist1.history["val_acc"][-1]
 T.store_logits()
 
 S=Student.Student()
@@ -16,9 +16,10 @@ S.calculate_features()
 delinquent_bests = []
 student_bests = []
 for i in range(repeats):
-    s = S.train_student(1.0,0.0)
-    h = S.train_delinquent()
-    d = max(h.history["val_acc"])
+    hs = S.train_student(c=0.0,T=1000.0)
+    hd = S.train_delinquent()
+    s = max(hs)
+    d = max(hd.history["val_acc"])
     student_bests.append(s)
     delinquent_bests.append(d)
 

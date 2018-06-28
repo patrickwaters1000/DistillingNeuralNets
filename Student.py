@@ -1,65 +1,63 @@
-
-import os
-import keras
-import sys
+import os, sys, re, pickle, keras
 import numpy as np
-from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
 from keras.layers import Dropout, Flatten, Dense, Input, Softmax, concatenate
-from keras import applications
 import keras.backend as K
-import re
-import pickle
 
-options = sys.argv[1:]
-#class_names = os.listdir("data/train")
-class_names = ["cat","dog","bear"]
+class_names = os.listdir("data/train")
+#class_names = ["cat","dog","bear","horse","squirrel"]
 class_name_indices = {name:i for i,name in enumerate(class_names)}
 nbr_classes = len(class_names)
-print("class names are {}".format(class_names))
 
-batch_size=32
 
-student_convnet = keras.applications.MobileNet(input_shape=(128,128,3),alpha=0.25,include_top=False,weights="imagenet")
-def get_features(img_path):
+def get_features(img_path,model):
     img = keras.preprocessing.image.load_img(img_path,target_size=(128,128))
     img = keras.preprocessing.image.img_to_array(img)
     img = keras.applications.mobilenet.preprocess_input(np.array([img]))
-    return student_convnet.predict(img)[0]
+    return model.predict(img)[0]
 
-def distillation_loss(c,a):
-    def f(y_true,y_pred):
-        pred_logits = a * y_pred[:,0:nbr_classes]
-        pred_probs = y_pred[:,nbr_classes:]
-        teach_logits = y_true[:,0:nbr_classes]
-        true_label = y_true[:,nbr_classes:]
-        loss1 = K.sum((pred_logits - teach_logits)**2)
-        m=K.max(pred_logits,axis=-1)
-        m=K.reshape(m,(batch_size,1))
-        loss2 = - K.sum( (pred_logits - m)*true_label)
-        return loss1 + c*loss2
+def distillation_loss(c=0.0,T=1.0):
+    # y_true is a concatenation of the teacher's logits and the true labels
+    # z_ is the student's logits
+    def f(y_true,z_):
+        z,labels = y_true[:,0:nbr_classes],y_true[:,nbr_classes:]
+        xent_loss = K.categorical_crossentropy(labels,z_,from_logits=True)
+        dist_loss = K.categorical_crossentropy(K.softmax(z/T),z_/T,from_logits=True)
+        return dist_loss + c*xent_loss
+    return f
+
+def distillation_loss_mse(c=0.0):
+    def f(y_true,z_):
+        z,labels = y_true[:,0:nbr_classes],y_true[:,nbr_classes:]
+        xent_loss = K.categorical_crossentropy(labels,z_,from_logits=True)
+        dist_loss = K.sum((z-z_)**2)
+        return dist_loss + c*xent_loss
     return f
 
 class Student:
     def __init__(self):
         return
 
-    
-
     def calculate_features(self):
+        convnet = keras.applications.MobileNet(
+            input_shape=(128,128,3),
+            alpha=0.25,
+            include_top=False,
+            weights="imagenet")
         for case in ["train","test"]:
             df = pickle.load(open("{}_data.p".format(case),"rb"))
             for sample in df:
                 img_path = sample["image_path"]
                 feature_path = re.sub(r".jpg$",".npy",img_path)
                 feature_path = re.sub(r"^data","features/student",feature_path)
-                features = get_features(img_path)
+                features = get_features(img_path,convnet)
                 np.save(feature_path,features)
                 sample["student_feature_path"]=feature_path
             pickle.dump(df,open("{}_data.p".format(case),"wb"))
 
     @staticmethod
-    def get_generator(df,y_name,batch_size,shuffle=True):
+    def batch_generator(df,y_name,batch_size=32,shuffle=True):
+    # generates test data batches, or training batches for the delinquent
         X = np.array([s["student_feature_path"] for s in df])
         Y = np.array([s[y_name] for s in df])
         nbr_samples = len(X)
@@ -80,7 +78,8 @@ class Student:
                 yield (X_batch,Y_batch)
 
     @staticmethod
-    def special_generator(df,batch_size,shuffle=True):
+    def distill_train_generator(df,batch_size=32,shuffle=True):
+    # generates minibatches for distillation training
         X = np.array([s["student_feature_path"] for s in df])
         Y1 = np.array([s["teacher_logits"] for s in df])
         Y2 = np.array([s["label"] for s in df])
@@ -102,11 +101,15 @@ class Student:
                 yield (X_batch,Y_batch)
 
 
-    def train_student(self,a,c):
+    def train_student(self,c=0.0,T=1.0,use_mse=False,epochs=200,lr=1e-5,batch_size=32):
+        if use_mse:
+            loss = distillation_loss_mse(c=c)
+        else:
+            loss = distillation_loss(c=c,T=T)
         df_train = pickle.load(open("train_data.p","rb"))
         df_test = pickle.load(open("test_data.p","rb"))
-        g_train = Student.special_generator(df_train,batch_size)
-        g_test = Student.get_generator(df_test,"label",batch_size,shuffle=False)
+        g_train = Student.distill_train_generator(df_train,batch_size=batch_size)
+        g_test = Student.batch_generator(df_test,"label",batch_size=batch_size,shuffle=False)
         
         top_model = keras.models.Sequential()
         top_model.add(Flatten(input_shape=(4,4,256)))
@@ -120,37 +123,27 @@ class Student:
             metrics=["acc"])
         x = top_model.get_layer("logits").output
         y = Softmax()(x)
-        z = concatenate([x,y],axis=-1)
-        model2 = keras.models.Model(inputs=top_model.layers[0].input,outputs=z)
-        model2.compile(
-            loss = distillation_loss(c,a),
-            optimizer = keras.optimizers.Adam(1e-5))
-    
+   
         logits_model = keras.models.Model(inputs=top_model.layers[0].input,outputs=top_model.get_layer("logits").output)
-        logits_model.compile(
-            loss=keras.losses.mean_squared_error,
-            optimizer = keras.optimizers.Adam(lr=1e-5))
+        logits_model.compile(loss=loss,optimizer = keras.optimizers.Adam(lr=lr))
         
         log = []
-        best= 0.0
         for epoch in range(200):
-            model2.fit_generator(g_train,steps_per_epoch=len(df_train)//batch_size,epochs=1,verbose=0)
+            logits_model.fit_generator(g_train,steps_per_epoch=len(df_train)//batch_size,epochs=1,verbose=0)
             how_good = top_model.evaluate_generator(g_test,steps=len(df_test)//batch_size)
             print("Epoch {} validation results are {}".format(epoch,how_good))
             log.append(how_good)
-            acc = how_good[1]
-            if acc>best:
-                best = acc
-        #pickle.dump(log,open("stats/student_train_log.p","wb"))
-        top_model.save("models/student.h5")
-        print("Best ={}".format(best))
-        return best
 
-    def train_delinquent(self):
+        top_model.save("models/student.h5")
+        losses,val_accs = zip(*log)
+        print("Best ={}".format(max(val_accs)))
+        return val_accs
+
+    def train_delinquent(self,epochs=200,lr=1e-5,batch_size=32):
         df_train = pickle.load(open("train_data.p","rb"))
         df_test = pickle.load(open("test_data.p","rb"))
-        g_train = Student.get_generator(df_train,"label",32)
-        g_test = Student.get_generator(df_test,"label",32,shuffle=False)
+        g_train = Student.batch_generator(df_train,"label",batch_size=batch_size)
+        g_test = Student.batch_generator(df_test,"label",batch_size=batch_size,shuffle=False)
         
         top_model = keras.models.Sequential()
         top_model.add(Flatten(input_shape=(4,4,256)))
@@ -161,9 +154,13 @@ class Student:
         
         top_model.compile(
             loss=keras.losses.categorical_crossentropy,
-            optimizer = keras.optimizers.Adam(lr=1e-5),
+            optimizer = keras.optimizers.Adam(lr=lr),
             metrics=["acc"])
-        results = top_model.fit_generator(g_train,steps_per_epoch=len(df_train)//32,validation_data=g_test,validation_steps=len(df_test)//32,epochs=200)
-        #pickle.dump(results.history["val_acc"],open("stats/delinquent_val_acc.p","wb"))
+        results = top_model.fit_generator(
+            g_train,
+            steps_per_epoch=len(df_train)//batch_size,
+            validation_data=g_test,
+            validation_steps=len(df_test)//batch_size,
+            epochs=epochs)
         return(results)
 
