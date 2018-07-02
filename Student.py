@@ -83,7 +83,7 @@ class Student:
         X = np.array([s["student_feature_path"] for s in df])
         Y1 = np.array([s["teacher_logits"] for s in df])
         Y2 = np.array([s["label"] for s in df])
-        Y2 = keras.utils.to_categorical(Y2)
+        Y2 = keras.utils.to_categorical(Y2,nbr_classes)
         Y = np.array([ list(y1)+list(y2) for y1,y2 in zip(Y1,Y2)])
         nbr_samples = len(X)
         nbr_batches = nbr_samples // batch_size

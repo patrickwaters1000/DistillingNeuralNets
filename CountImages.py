@@ -8,4 +8,4 @@ for case in ["train","test"]:
         x = len( os.listdir("data/{}/{}".format(case,name)) )
         total += x
         print("{} {} has {} images".format(case,name,x))
-    print("Total of {} {} images".format(total,name))
+    print("Total of {} {} images".format(total,case))

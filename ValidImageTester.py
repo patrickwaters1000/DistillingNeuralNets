@@ -10,4 +10,5 @@ for case in ["train","test"]:
                 keras.preprocessing.image.load_img(p,target_size=(224,224))
             except OSError:
                 os.remove(p)
-            
+            except IOError:
+		os.remove(p)

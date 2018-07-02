@@ -3,7 +3,7 @@ Gets downloads a list of URLs for the names stored in "animals",
 then calls a bash script to do the actual downloading
 '''
 import re, sys, os, subprocess
-import urllib.request
+import urllib
 
 class_names = sys.argv[1:]
 print(class_names)
@@ -19,7 +19,7 @@ for folder in ["data","features/teacher","features/student"]:
             new_dir(path)
 new_dir("models")
 
-max_images = {"train":500,"test":250}
+max_images = {"train":100,"test":50}
 
 def get_wnid(name):
     wnid_data = open("index.noun","r").read()
@@ -38,10 +38,11 @@ def get_urls(wnid,name):
     if not os.path.exists(save_path):
         new_dir("URL_lists")
         image_locations_url="http://image-net.org/api/text/imagenet.synset.geturls?wnid="+wnid
-        urllib.request.urlretrieve(image_locations_url,save_path)
+        urllib.urlretrieve(image_locations_url,save_path)
     
     urls = open(save_path,"r").readlines()
     urls = [re.sub("\n","",u) for u in urls]
+    urls = [re.sub("\r","",u) for u in urls]
     return urls
 
 for name in class_names:

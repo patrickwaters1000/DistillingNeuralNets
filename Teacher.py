@@ -8,7 +8,6 @@ from keras.layers import Dropout, Flatten, Dense, Input, Softmax
 from keras import applications
 import re, os, sys, pickle, keras
 
-options = sys.argv[1:]
 class_names = os.listdir("data/train") # Train should have a subfolder for each class like "cat", "dog", etc.
 #class_names= ["cat","dog","bear","horse","squirrel"]
 class_name_indices = {name:i for i,name in enumerate(class_names)}
