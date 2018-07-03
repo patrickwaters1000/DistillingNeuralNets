@@ -1,10 +1,12 @@
 # Distilling Neural Networks
 
-Knowledge distillation is a technique for improving the performance of small lightweight models.  This repository uses distillation to train a small MobileNet image classifier.
+Knowledge distillation is a technique for improving the performance of small lightweight models.  This repository uses distillation to train a small MobileNet image classifier.  
 
-## Requirements
+<p float="left">
+   <img src="DistillSlide.png" width="400" />
+</p>
 
-Keras, tensorflow and numpy are required.
+The diagram above shows a small "student" model on the left learning to imitate the output of the larger teacher model on the right.  The teacher assigns "rich labels" to each training image, which are used instead of the ground truth one-hot image labels.
 
 ## Scraping from ImageNet
 
@@ -19,7 +21,10 @@ Many of the ImageNet URLs do not point to valid images, purge any invalid images
 python ValidImageTester.py
 python CountImages.py
 ```
-If you'd rather use other images you already have, they need to be stored as follows
+
+## Using your own images
+
+If you'd rather use other images you already have, they need to be stored as follows:
 ```
 data/
   train/
@@ -48,3 +53,7 @@ python Distill.py
 This will train a DenseNet teacher model by transfer learning, then train a MobileNet student model by distillation.  For comparison, it will also train a MobileNet model without distillation.  The trained models will be saved in the models folder.
 
 If you used the image classes car, dog, and bird in the example code above, you should find that distillation reduces the MobileNet model's classification errors by about 10%.  Feel free to tinker with the numerous hyperparameters in Teacher.py and Student.py, such as numbers of training epochs, distillation temperature and numbers of neurons in the final dense layers.
+
+## Requirements
+
+Keras, tensorflow and numpy and PIL are required.
