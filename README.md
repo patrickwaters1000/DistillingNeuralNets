@@ -39,7 +39,7 @@ data/
     ...
 ```
 The actual names of the image files are not important, but they must be JPEG files.
-If you are using your own images, you need can use the script
+If you are using your own images, you can use the script
 ```
 python BuildFolders.py cat dog bird
 ```
