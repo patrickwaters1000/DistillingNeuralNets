@@ -19,11 +19,32 @@ Many of the ImageNet URLs do not point to valid images, purge any invalid images
 python ValidImageTester.py
 python CountImages.py
 ```
-
+If you'd rather use other images you already have, they need to be stored as follows
+```
+data/
+  train/
+    cat/
+      cat00000.jpg
+      ...
+    dog/
+    ...
+   test/
+    cat/
+    dog/
+    ...
+```
+The actual names of the image files are not important, but they must be JPEG files.
+If you are using your own images, you need can use the script
+```
+python BuildFolders.py cat dog bird
+```
+which will create the above directory structure and also other folders for storing convolution features and saving models.
 ## Testing distillation
 
 You can run an experiment comparing the performance of knowledge distillation on the image classes you downloaded as follows:
 ```
 python Distill.py
 ```
-This will train a DenseNet teacher model by transfer learning, then train a MobileNet student model by distillation.  For comparison, it will also train a MobileNet model without distillation.  If you used the image classes car, dog, and bird in the example code above, you should find that distillation reduces the MobileNet model's classification errors by about 10%.  Feel free to tinker with the numerous hyperparameters in Teacher.py and Student.py, such as numbers of training epochs, distillation temperature and numbers of neurons in the final dense layers.
+This will train a DenseNet teacher model by transfer learning, then train a MobileNet student model by distillation.  For comparison, it will also train a MobileNet model without distillation.  The trained models will be saved in the models folder.
+
+If you used the image classes car, dog, and bird in the example code above, you should find that distillation reduces the MobileNet model's classification errors by about 10%.  Feel free to tinker with the numerous hyperparameters in Teacher.py and Student.py, such as numbers of training epochs, distillation temperature and numbers of neurons in the final dense layers.
