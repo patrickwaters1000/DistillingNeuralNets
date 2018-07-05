@@ -4,11 +4,11 @@ from Utils import build_database
 
 repeats = 1
 
-#build_database()
+build_database()
 T = Teacher.Teacher("densenet")
-#T.calculate_features()
-#hist1 = T.train()
-#teacher_acc = hist1.history["val_acc"][-1]
+T.calculate_features()
+hist1 = T.train()
+teacher_acc = hist1.history["val_acc"][-1]
 T.store_logits()
 
 S=Student.Student()

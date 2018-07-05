@@ -10,15 +10,19 @@ class_name_indices = {name:i for i,name in enumerate(class_names)}
 nbr_classes = len(class_names)
 
 
+
 def get_features(img_path,model):
+# When I use this function, model is MobileNet without is top layers.
+# So the output will be the MobileNet's convolution features.
+# Saving these features for each image drastically speeds up training.
     img = keras.preprocessing.image.load_img(img_path,target_size=(128,128))
     img = keras.preprocessing.image.img_to_array(img)
     img = keras.applications.mobilenet.preprocess_input(np.array([img]))
     return model.predict(img)[0]
 
 def distillation_loss(c=0.0,T=1.0):
-    # y_true is a concatenation of the teacher's logits and the true labels
-    # z_ is the student's logits
+# y_true is a concatenation of the teacher's logits and the true labels
+# z_ is the student's logits
     def f(y_true,z_):
         z,labels = y_true[:,0:nbr_classes],y_true[:,nbr_classes:]
         xent_loss = K.categorical_crossentropy(labels,z_,from_logits=True)
@@ -39,6 +43,8 @@ class Student:
         return
 
     def calculate_features(self):
+    # Calculate the MobileNet convolution features for all images and save them.
+    # Add a path to the saved features to appropriate row in our train or test sample database.
         convnet = keras.applications.MobileNet(
             input_shape=(128,128,3),
             alpha=0.25,
@@ -111,6 +117,8 @@ class Student:
         g_train = Student.distill_train_generator(df_train,batch_size=batch_size)
         g_test = Student.batch_generator(df_test,"label",batch_size=batch_size,shuffle=False)
         
+	# Since MobileNet's convolution features for each image are stored,
+	# we only train a small dense model to sit on top of them.
         top_model = keras.models.Sequential()
         top_model.add(Flatten(input_shape=(4,4,256)))
         top_model.add(Dense(200,activation="relu"))
@@ -123,7 +131,10 @@ class Student:
             metrics=["acc"])
         x = top_model.get_layer("logits").output
         y = Softmax()(x)
-   
+
+   	# The distillation loss functions need access to the logits before the final softmax layer.
+	# Weights will be shared between logits_model and top_model,
+	# so we train the logits_model, then return the top_model.
         logits_model = keras.models.Model(inputs=top_model.layers[0].input,outputs=top_model.get_layer("logits").output)
         logits_model.compile(loss=loss,optimizer = keras.optimizers.Adam(lr=lr))
         
@@ -140,6 +151,8 @@ class Student:
         return val_accs
 
     def train_delinquent(self,epochs=200,lr=1e-5,batch_size=32):
+    # Delinquent refers to a model that is trained without using distillation.
+    # This is used as a baseline to evaluate the benefit of distillation.
         df_train = pickle.load(open("train_data.p","rb"))
         df_test = pickle.load(open("test_data.p","rb"))
         g_train = Student.batch_generator(df_train,"label",batch_size=batch_size)

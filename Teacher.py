@@ -85,6 +85,8 @@ class Teacher:
                 yield (X_batch,Y_batch)
     
     def train(self,epochs=100,lr=1e-5,batch_size=32):
+    # Trains a teacher model using stored convolution features.
+    # The calculate features method must me called before train.
         df_train = pickle.load(open("train_data.p","rb"))
         df_test = pickle.load(open("test_data.p","rb"))
         nbr_train = len(df_train)
@@ -111,12 +113,12 @@ class Teacher:
             validation_steps=nbr_test // batch_size,
             epochs=epochs,
             callbacks=[ckpt])
-        return h
+        # Return a history of validation loss and accuracy
+	return h
     
                    
     def store_logits(self):
-    # Calculate the rich labels,
-    # which for now are the teacher model's logits (hidden state before final softmax)
+    # Calculate the rich labels, which are the teacher model's logits (hidden state before final softmax)
     # Saves the rich labels so that the student can be trained with them.
         top_model = keras.models.load_model("models/teacher_{}.h5".format(self.model_name))
         logits_model = keras.models.Model( # build a model that grabs the hidden state just before final softmax
